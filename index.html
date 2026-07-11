@@ -574,7 +574,8 @@ body.viewer .admin-only{display:none!important}
       </div>
       <div class="field"><label><span data-i18n="f_name">الاسم</span> *</label><input type="text" id="sName" data-i18n-ph="ph_sname" placeholder="الاسم"></div>
       <div class="field"><label data-i18n="f_role">الوظيفة</label>
-        <select id="sRole"><option value="مدير فني" data-i18n="role_td">مدير فني</option><option value="مدرب عام" data-i18n="role_head">مدرب عام</option><option value="مدرب مساعد" data-i18n="role_asst">مدرب مساعد</option><option value="مدرب حراس" data-i18n="role_gk">مدرب حراس</option><option value="مدير الفريق" data-i18n="role_mgr">مدير الفريق</option><option value="إداري" data-i18n="role_admin">إداري</option><option value="طبيب" data-i18n="role_doc">طبيب</option><option value="أخصائي علاج طبيعي" data-i18n="role_pt">أخصائي علاج طبيعي</option><option value="أخصائي تغذية" data-i18n="role_nut">أخصائي تغذية</option><option value="أخرى" data-i18n="role_other">أخرى</option></select></div>
+        <select id="sRole" onchange="toggleRoleOther()"><option value="مدير فني" data-i18n="role_td">مدير فني</option><option value="مدرب عام" data-i18n="role_head">مدرب عام</option><option value="مدرب مساعد" data-i18n="role_asst">مدرب مساعد</option><option value="مدرب حراس" data-i18n="role_gk">مدرب حراس</option><option value="مدير الفريق" data-i18n="role_mgr">مدير الفريق</option><option value="إداري" data-i18n="role_admin">إداري</option><option value="طبيب" data-i18n="role_doc">طبيب</option><option value="أخصائي علاج طبيعي" data-i18n="role_pt">أخصائي علاج طبيعي</option><option value="أخصائي تغذية" data-i18n="role_nut">أخصائي تغذية</option><option value="أخرى" data-i18n="role_other">أخرى</option></select></div>
+      <div class="field" id="sRoleOtherWrap" style="display:none"><label data-i18n="role_other_label">اسم الوظيفة</label><input type="text" id="sRoleOther" data-i18n-ph="role_other_ph" placeholder="اكتب اسم الوظيفة"></div>
       <div class="field"><label data-i18n="f_phone">الهاتف</label><input type="text" id="sPhone" data-i18n-ph="ph_phone" placeholder="01xxxxxxxxx"></div>
     </div>
     <div class="modal-foot">
@@ -693,7 +694,7 @@ const T = {
     th_nat:'الجنسية', th_season_val:'قيمة الموسم', th_fed:'الاتحاد', th_dev:'التنمية', th_doc_total:'إجمالي التوثيق',
     total_eg:'إجمالي توثيق المصريات (٧٪)', total_fo:'إجمالي توثيق الأجنبيات (٨٪)', export_doc:'⬇️ تصدير الكشف Excel', add_players_first:'أضف لاعبات الأول',
     egyptian:'مصرية', foreign:'أجنبية', pos_gk:'حارسة', pos_def:'مدافعة', pos_mid:'وسط', pos_fwd:'مهاجمة',
-    role_head:'مدرب عام', role_asst:'مدرب مساعد', role_gk:'مدرب حراس', role_mgr:'مدير الفريق', role_admin:'إداري', role_doc:'طبيب', role_pt:'أخصائي علاج طبيعي', role_nut:'أخصائي تغذية', role_other:'أخرى', role_td:'مدير فني',
+    role_head:'مدرب عام', role_asst:'مدرب مساعد', role_gk:'مدرب حراس', role_mgr:'مدير الفريق', role_admin:'إداري', role_doc:'طبيب', role_pt:'أخصائي علاج طبيعي', role_nut:'أخصائي تغذية', role_other:'أخرى', role_td:'مدير فني', role_other_label:'اسم الوظيفة', role_other_ph:'اكتب اسم الوظيفة',
     m_add_player:'إضافة لاعبة', m_edit_player:'تعديل لاعبة', f_name:'الاسم', f_number:'رقم القميص', f_position:'المركز', f_age:'العمر', f_phone:'الهاتف', f_guardian:'هاتف ولي الأمر', guardian_opt:'اختياري', save:'حفظ', cancel:'إلغاء', photo_opt:'اختياري',
     m_add_staff:'إضافة عضو', m_edit_staff:'تعديل عضو', f_role:'الوظيفة',
     m_add_match:'إضافة ماتش', m_edit_match:'تعديل بيانات الماتش', f_opponent:'الخصم', opp_ph:'اسم الفريق', f_venue:'الملعب', venue_ph:'بالم هيلز / اسم الملعب', f_homeaway:'أرضنا / خارج', round_ph:'رقم',
@@ -748,7 +749,7 @@ const T = {
     th_nat:'Nationality', th_season_val:'Season Value', th_fed:'Federation', th_dev:'Development', th_doc_total:'Total Documentation',
     total_eg:'Total Egyptian documentation (7%)', total_fo:'Total foreign documentation (8%)', export_doc:'⬇️ Export Sheet (Excel)', add_players_first:'Add players first',
     egyptian:'Egyptian', foreign:'Foreign', pos_gk:'Goalkeeper', pos_def:'Defender', pos_mid:'Midfielder', pos_fwd:'Forward',
-    role_head:'Head Coach', role_asst:'Assistant Coach', role_gk:'GK Coach', role_mgr:'Team Manager', role_admin:'Administrator', role_doc:'Doctor', role_pt:'Physiotherapist', role_nut:'Nutritionist', role_other:'Other', role_td:'Technical Director',
+    role_head:'Head Coach', role_asst:'Assistant Coach', role_gk:'GK Coach', role_mgr:'Team Manager', role_admin:'Administrator', role_doc:'Doctor', role_pt:'Physiotherapist', role_nut:'Nutritionist', role_other:'Other', role_td:'Technical Director', role_other_label:'Job title', role_other_ph:'Enter job title',
     m_add_player:'Add Player', m_edit_player:'Edit Player', f_name:'Name', f_number:'Jersey No.', f_position:'Position', f_age:'Age', f_phone:'Phone', f_guardian:'Guardian Phone', guardian_opt:'optional', save:'Save', cancel:'Cancel', photo_opt:'optional',
     m_add_staff:'Add Member', m_edit_staff:'Edit Member', f_role:'Role',
     m_add_match:'Add Match', m_edit_match:'Edit Match Details', f_opponent:'Opponent', opp_ph:'Team name', f_venue:'Venue', venue_ph:'Palm Hills / venue name', f_homeaway:'Home / Away', round_ph:'No.',
@@ -1869,13 +1870,26 @@ function renderStaff(){
     </div>`).join('');
 }
 
+const STAFF_ROLES = ['مدير فني','مدرب عام','مدرب مساعد','مدرب حراس','مدير الفريق','إداري','طبيب','أخصائي علاج طبيعي','أخصائي تغذية','أخرى'];
+function toggleRoleOther(){
+  const show = document.getElementById('sRole').value === 'أخرى';
+  document.getElementById('sRoleOtherWrap').style.display = show ? 'block' : 'none';
+}
 function openStaffModal(id){
   if (!isAdmin) return;
   editingStaffId = id || null; pendingStaffPhoto = null;
   document.getElementById('staffModalTitle').textContent = id ? t('m_edit_staff') : t('m_add_staff');
   const s = id ? DB.staff.find(x=>x.id===id) : {};
   document.getElementById('sName').value = s.name||'';
-  document.getElementById('sRole').value = s.role||'مدرب عام';
+  const other = document.getElementById('sRoleOther');
+  if (s.role && !STAFF_ROLES.includes(s.role)){ // وظيفة مخصّصة محفوظة
+    document.getElementById('sRole').value = 'أخرى';
+    other.value = s.role;
+  } else {
+    document.getElementById('sRole').value = s.role || 'مدرب عام';
+    other.value = '';
+  }
+  toggleRoleOther();
   document.getElementById('sPhone').value = s.phone||'';
   document.getElementById('sPhotoFile').value = '';
   document.getElementById('sPhotoPreview').innerHTML = s.photoUrl ? `<img src="${cldThumb(s.photoUrl,180)}">` : '🧑‍💼';
@@ -1885,9 +1899,15 @@ function openStaffModal(id){
 async function saveStaff(){
   const name = document.getElementById('sName').value.trim();
   if (!name){ toast('اكتب اسم العضو'); return; }
+  let role = document.getElementById('sRole').value;
+  if (role === 'أخرى'){
+    const custom = document.getElementById('sRoleOther').value.trim();
+    if (!custom){ toast('اكتب اسم الوظيفة'); return; }
+    role = custom;
+  }
   const btn = document.getElementById('sSaveBtn'); btn.disabled = true; btn.textContent = t('saving');
   try {
-    const data = { name, role: document.getElementById('sRole').value, phone: document.getElementById('sPhone').value.trim() };
+    const data = { name, role, phone: document.getElementById('sPhone').value.trim() };
     if (pendingStaffPhoto){ const url = await uploadPhoto(pendingStaffPhoto, 'staff'); if (url) data.photoUrl = url; }
     if (editingStaffId) await db.collection('staff').doc(editingStaffId).set(data, {merge:true});
     else { data.createdAt = Date.now(); await db.collection('staff').add(data); }
