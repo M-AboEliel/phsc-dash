@@ -245,6 +245,18 @@ button{font-family:'Cairo',sans-serif}
 .att-late input{flex:1;max-width:110px;padding:8px 10px;border:1px solid #fed7aa;border-radius:7px;
   font-family:inherit;font-size:14px;font-weight:700;text-align:center}
 .att-late .unit{font-size:12px;color:#c2410c;font-weight:700}
+/* file filters */
+.file-filters{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:14px}
+.fchips{display:flex;flex-wrap:wrap;gap:7px;flex:1;min-width:0}
+.fchip{padding:8px 13px;border:1px solid var(--border);border-radius:20px;background:var(--surface);
+  font-family:inherit;font-size:12.5px;font-weight:700;color:var(--text2);cursor:pointer;
+  display:inline-flex;align-items:center;gap:6px;transition:.12s}
+.fchip:hover{border-color:var(--red);color:var(--red)}
+.fchip.on{background:var(--red);border-color:var(--red);color:#fff}
+.fchip span{font-size:11px;background:rgba(0,0,0,.08);padding:1px 7px;border-radius:12px;font-weight:800}
+.fchip.on span{background:rgba(255,255,255,.25)}
+.file-pfilter{padding:9px 12px;border:1px solid var(--border);border-radius:10px;font-family:'Cairo',sans-serif;
+  font-size:13px;font-weight:700;background:var(--surface);color:var(--text);max-width:200px}
 .card-sub{font-size:11px;color:var(--text3)}
 .empty-sm{color:var(--text3);font-size:13px;text-align:center;padding:10px}
 .doc-val{width:120px;padding:7px 9px;border:1px solid var(--border);border-radius:6px;font-family:'Cairo',sans-serif;font-size:13px}
@@ -704,7 +716,7 @@ const T = {
     up_matches:'رفع جدول المباريات', up_matches_dz:'انقر أو اسحب ملف المباريات', up_matches_hint:'CSV أو Excel — التاريخ | الخصم | الملعب | الجولة',
     up_logo:'رفع الشعار', up_logo_dz:'انقر لرفع شعار الفريق', up_logo_hint:'PNG أو JPG',
     clear_data:'مسح البيانات', clear_warn:'مسح كل البيانات لا يمكن التراجع عنه', clear_btn:'مسح كل البيانات',
-    files_title:'ملفات', files_count:'ملف', up_file:'رفع ملف جديد', up_file_dz:'انقر أو اسحب الملف', up_file_hint:'PDF / صورة / مستند', no_files:'لا توجد ملفات — ارفع أول ملف',
+    files_title:'ملفات', files_count:'ملف', up_file:'رفع ملف جديد', up_file_dz:'انقر أو اسحب الملف', up_file_hint:'PDF / صورة / مستند', no_files:'لا توجد ملفات — ارفع أول ملف', files_all:'الكل', files_all_players:'كل اللاعبات', files_general:'ملفات عامة', no_files_filter:'لا توجد ملفات بهذا الفلتر',
     th_file:'الملف', th_type:'النوع', th_date:'التاريخ', cat_id:'بطاقة رقم قومي', cat_passport:'جواز سفر', cat_medical:'تقرير طبي', cat_photo:'صورة', cat_other:'مستند آخر', no_player_opt:'بدون لاعبة محددة',
     contracts_title:'عقود اللاعبات', contracts_count:'عقد', up_contract:'رفع عقد (PDF)', up_contract_dz:'انقر أو اسحب عقد PDF', up_contract_hint:'PDF فقط — عقد واحد أو أكثر لكل لاعبة', no_contracts:'لا توجد عقود مرفوعة', th_contract:'العقد', pick_player:'اختر اللاعبة',
     reports_title:'التقارير', reports_sub:'ملخصات وتصدير Excel وتقرير PDF للإدارة', pdf_title:'تقرير الإدارة (PDF)', pdf_desc:'تقرير بشكل الصفحة الرئيسية: الهدافات + الإنذارات + الإيقافات + المهددات بالإيقاف.', pdf_btn:'📄 إنشاء تقرير PDF',
@@ -760,7 +772,7 @@ const T = {
     up_matches:'Upload Match Schedule', up_matches_dz:'Click or drag the matches file', up_matches_hint:'CSV or Excel — Date | Opponent | Venue | Round',
     up_logo:'Upload Logo', up_logo_dz:'Click to upload team logo', up_logo_hint:'PNG or JPG',
     clear_data:'Clear Data', clear_warn:'Clearing all data cannot be undone', clear_btn:'Clear All Data',
-    files_title:'Files', files_count:'files', up_file:'Upload New File', up_file_dz:'Click or drag the file', up_file_hint:'PDF / image / document', no_files:'No files — upload the first one',
+    files_title:'Files', files_count:'files', up_file:'Upload New File', up_file_dz:'Click or drag the file', up_file_hint:'PDF / image / document', no_files:'No files — upload the first one', files_all:'All', files_all_players:'All players', files_general:'General files', no_files_filter:'No files match this filter',
     th_file:'File', th_type:'Type', th_date:'Date', cat_id:'National ID', cat_passport:'Passport', cat_medical:'Medical report', cat_photo:'Photo', cat_other:'Other document', no_player_opt:'No specific player',
     contracts_title:'Player Contracts', contracts_count:'contracts', up_contract:'Upload Contract (PDF)', up_contract_dz:'Click or drag contract PDF', up_contract_hint:'PDF only — one or more per player', no_contracts:'No contracts uploaded', th_contract:'Contract', pick_player:'Select player',
     reports_title:'Reports', reports_sub:'Summaries, Excel export, and a PDF report for management', pdf_title:'Management Report (PDF)', pdf_desc:'A homepage-style report: scorers + cautions + suspensions + players at risk.', pdf_btn:'📄 Generate PDF Report',
@@ -1607,21 +1619,57 @@ async function handleFileUpload(file){
     document.getElementById('fileInput').value=''; toast('تم رفع الملف ✓'); }
   catch(e){ console.error(e); toast(t('save_err')); }
 }
+let fileCatFilter = 'all', filePlayerFilter = 'all';
+function setFileCat(c){ fileCatFilter = c; renderFiles(); }
+function setFilePlayer(v){ filePlayerFilter = v; renderFiles(); }
+
 function renderFiles(){
   const el = document.getElementById('filesList'); if (!el) return;
   const fp = document.getElementById('filePlayer'); if (fp) fp.innerHTML = `<option value="">${t('no_player_opt')}</option>`+playerOptions();
   document.getElementById('filesCount').textContent = DB.files.length + ' ' + t('files_count');
   if (!DB.files.length){ el.innerHTML = `<div class="empty-card"><div class="empty-icon">📁</div><div class="empty-text">${t('no_files')}</div></div>`; return; }
-  const sorted = [...DB.files].sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
-  el.innerHTML = `<div class="card"><div class="card-body table-wrap">
+
+  const catOf = f => f.category || 'مستند آخر';
+  // التصنيفات الموجودة فعلًا
+  const cats = [...new Set(DB.files.map(catOf))];
+  // اللاعبات اللي ليها ملفات + هل فيه ملفات عامة
+  const playerIds = [...new Set(DB.files.filter(f=>f.playerId).map(f=>f.playerId))];
+  const hasGeneral = DB.files.some(f=>!f.playerId);
+  // لو الفلتر الحالي بقى مش موجود (اتمسح آخر ملف فيه) نرجّع للكل
+  if (fileCatFilter!=='all' && !cats.includes(fileCatFilter)) fileCatFilter='all';
+
+  // تطبيق الفلاتر
+  let files = [...DB.files];
+  if (fileCatFilter!=='all') files = files.filter(f=>catOf(f)===fileCatFilter);
+  if (filePlayerFilter==='__none__') files = files.filter(f=>!f.playerId);
+  else if (filePlayerFilter!=='all') files = files.filter(f=>f.playerId===filePlayerFilter);
+  files.sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
+
+  const esc = s => String(s).replace(/'/g,'&#39;');
+  const chips = `<button class="fchip ${fileCatFilter==='all'?'on':''}" onclick="setFileCat('all')">${t('files_all')} <span>${DB.files.length}</span></button>` +
+    cats.map(c=>`<button class="fchip ${fileCatFilter===c?'on':''}" onclick="setFileCat('${esc(c)}')">${te('cat',c)||c} <span>${DB.files.filter(f=>catOf(f)===c).length}</span></button>`).join('');
+
+  const pOpts = `<option value="all">${t('files_all_players')}</option>` +
+    playerIds.map(id=>`<option value="${id}" ${filePlayerFilter===id?'selected':''}>${playerName(id)}</option>`).join('') +
+    (hasGeneral?`<option value="__none__" ${filePlayerFilter==='__none__'?'selected':''}>${t('files_general')}</option>`:'');
+
+  const filterBar = `<div class="file-filters">
+    <div class="fchips">${chips}</div>
+    <select class="file-pfilter" onchange="setFilePlayer(this.value)">${pOpts}</select>
+  </div>`;
+
+  const body = files.length ? `<div class="card"><div class="card-body table-wrap">
     <table class="data-table"><thead><tr><th>${t('th_file')}</th><th>${t('th_type')}</th><th>${t('th_player')}</th><th>${t('th_date')}</th><th></th></tr></thead>
-    <tbody>${sorted.map(f=>`<tr>
+    <tbody>${files.map(f=>`<tr>
       <td><a href="${f.url}" target="_blank" rel="noopener" style="color:var(--red);font-weight:700;text-decoration:none">📎 ${f.name||t('th_file')}</a></td>
       <td><span class="badge badge-home">${te('cat',f.category)||f.category||'—'}</span></td>
       <td>${f.playerId?playerName(f.playerId):'—'}</td>
       <td>${new Date(f.createdAt).toLocaleDateString(dloc())}</td>
       <td><button class="rm admin-only" onclick="deleteFile('${f.id}','${(f.path||'').replace(/'/g,'')}')">✕</button></td>
-    </tr>`).join('')}</tbody></table></div></div>`;
+    </tr>`).join('')}</tbody></table></div></div>`
+    : `<div class="empty-card"><div class="empty-icon">🔍</div><div class="empty-text">${t('no_files_filter')}</div></div>`;
+
+  el.innerHTML = filterBar + body;
 }
 async function deleteFile(id, path){
   if (!isAdmin) return;
