@@ -16,7 +16,7 @@
 <style>
   :root{
     --red:#E31E24; --red-dark:#B71419; --black:#1a1a1a; --bg:#f4f5f7;
-    --present:#16a34a; --absent:#dc2626; --excused:#f59e0b; --injured:#7c3aed;
+    --present:#16a34a; --absent:#dc2626; --excused:#f59e0b; --injured:#7c3aed; --late:#f97316;
     --line:#e5e7eb; --muted:#6b7280; --card:#ffffff;
   }
   *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;font-family:'Cairo',sans-serif;}
@@ -42,14 +42,15 @@
   .date-row input{flex:1;border:none;background:#fff;color:var(--black);border-radius:7px;padding:8px;font-size:14px;font-weight:600;font-family:inherit;}
 
   /* ===== Summary bar ===== */
-  .summary{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;padding:12px 12px 4px;}
-  .sum-pill{background:var(--card);border-radius:12px;padding:8px 4px;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,.06);}
-  .sum-pill .n{font-size:20px;font-weight:800;line-height:1;}
+  .summary{display:grid;grid-template-columns:repeat(5,1fr);gap:5px;padding:12px 12px 4px;}
+  .sum-pill{background:var(--card);border-radius:12px;padding:8px 3px;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,.06);}
+  .sum-pill .n{font-size:19px;font-weight:800;line-height:1;}
   .sum-pill .l{font-size:10px;font-weight:600;color:var(--muted);margin-top:3px;}
   .sum-pill.present .n{color:var(--present);}
   .sum-pill.absent .n{color:var(--absent);}
   .sum-pill.excused .n{color:var(--excused);}
   .sum-pill.injured .n{color:var(--injured);}
+  .sum-pill.late .n{color:var(--late);}
 
   /* ===== Quick actions ===== */
   .quick{display:flex;gap:8px;padding:8px 12px 4px;}
@@ -67,14 +68,19 @@
   .pinfo .pmeta{font-size:11px;color:var(--muted);font-weight:600;margin-top:2px;}
   .pnum{width:28px;height:28px;border-radius:8px;background:var(--black);color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;flex-shrink:0;}
 
-  .status-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;}
-  .sbtn{border:1.5px solid var(--line);background:#fff;border-radius:10px;padding:10px 4px;font-size:12px;font-weight:700;color:var(--muted);font-family:inherit;display:flex;flex-direction:column;align-items:center;gap:3px;transition:all .12s;}
-  .sbtn .ico{font-size:16px;}
+  .status-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:5px;}
+  .sbtn{border:1.5px solid var(--line);background:#fff;border-radius:10px;padding:9px 2px;font-size:11px;font-weight:700;color:var(--muted);font-family:inherit;display:flex;flex-direction:column;align-items:center;gap:3px;transition:all .12s;}
+  .sbtn .ico{font-size:15px;}
   .sbtn:active{transform:scale(.95);}
   .sbtn.on.present{background:var(--present);border-color:var(--present);color:#fff;}
   .sbtn.on.absent{background:var(--absent);border-color:var(--absent);color:#fff;}
   .sbtn.on.excused{background:var(--excused);border-color:var(--excused);color:#fff;}
   .sbtn.on.injured{background:var(--injured);border-color:var(--injured);color:#fff;}
+  .sbtn.on.late{background:var(--late);border-color:var(--late);color:#fff;}
+  .late-box{margin-top:9px;display:flex;align-items:center;gap:8px;background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:9px 11px;}
+  .late-box label{font-size:12.5px;font-weight:800;color:#c2410c;white-space:nowrap;}
+  .late-box input{flex:1;max-width:120px;padding:9px 10px;border:1.5px solid #fed7aa;border-radius:8px;font-family:inherit;font-size:15px;font-weight:800;text-align:center;color:var(--black);}
+  .late-box .unit{font-size:12.5px;font-weight:800;color:#c2410c;}
 
   /* ===== Loading / empty ===== */
   .state{text-align:center;padding:60px 20px;color:var(--muted);}
@@ -115,6 +121,7 @@
   <div class="sum-pill absent"><div class="n" id="cAbsent">0</div><div class="l">غائبة</div></div>
   <div class="sum-pill excused"><div class="n" id="cExcused">0</div><div class="l">بعذر</div></div>
   <div class="sum-pill injured"><div class="n" id="cInjured">0</div><div class="l">مصابة</div></div>
+  <div class="sum-pill late"><div class="n" id="cLate">0</div><div class="l">متأخرة</div></div>
 </div>
 
 <div class="quick">
@@ -146,13 +153,15 @@ const STATUSES = [
   {v:'present', t:'حاضرة', ico:'✓'},
   {v:'absent',  t:'غائبة', ico:'✕'},
   {v:'excused', t:'بعذر',  ico:'📝'},
-  {v:'injured', t:'مصابة', ico:'➕'}
+  {v:'injured', t:'مصابة', ico:'➕'},
+  {v:'late',    t:'تأخير', ico:'⏱'}
 ];
 
 let db, players = [], sessions = [];
 let currentSessionId = null;
 let currentDate = '';
 let attendance = {};       // local mirror {playerId: status}
+let lateMinutes = {};      // local mirror {playerId: minutes}
 let creatingSession = false;
 
 /* ===== Init ===== */
@@ -204,21 +213,24 @@ function syncToDate(){
   if (found){
     currentSessionId = found.id;
     attendance = Object.assign({}, found.attendance || {});
+    lateMinutes = Object.assign({}, found.lateMinutes || {});
   } else {
     currentSessionId = null;
     attendance = {};
+    lateMinutes = {};
   }
 }
 
 /* ===== Render ===== */
 function render(){
   // Summary
-  const c = {present:0, absent:0, excused:0, injured:0};
+  const c = {present:0, absent:0, excused:0, injured:0, late:0};
   Object.values(attendance).forEach(v => { if (c[v]!==undefined) c[v]++; });
   document.getElementById('cPresent').textContent = c.present;
   document.getElementById('cAbsent').textContent  = c.absent;
   document.getElementById('cExcused').textContent = c.excused;
   document.getElementById('cInjured').textContent = c.injured;
+  document.getElementById('cLate').textContent    = c.late;
 
   const list = document.getElementById('list');
 
@@ -236,6 +248,13 @@ function render(){
       <button class="sbtn ${st.v} ${cur===st.v?'on':''}" onclick="setStatus('${p.id}','${st.v}')">
         <span class="ico">${st.ico}</span>${st.t}
       </button>`).join('');
+    const lateBox = cur==='late' ? `
+      <div class="late-box">
+        <label>⏱ اتأخرت:</label>
+        <input type="number" inputmode="numeric" min="0" value="${lateMinutes[p.id]||''}" placeholder="كام دقيقة؟"
+          onchange="setLate('${p.id}', this.value)">
+        <span class="unit">دقيقة</span>
+      </div>` : '';
     return `
       <div class="pcard">
         <div class="pcard-top">
@@ -247,6 +266,7 @@ function render(){
           ${numBadge}
         </div>
         <div class="status-grid">${btns}</div>
+        ${lateBox}
       </div>`;
   }).join('');
 }
@@ -258,12 +278,21 @@ async function setStatus(pid, status){
   // toggle off if same
   if (attendance[pid] === status) delete attendance[pid];
   else attendance[pid] = status;
+  // امسحي دقايق التأخير لو الحالة بقت مش تأخير
+  if (attendance[pid] !== 'late' && lateMinutes[pid] !== undefined) delete lateMinutes[pid];
   render();
+  await persist();
+}
+
+async function setLate(pid, val){
+  const n = parseInt(val);
+  if (n > 0) lateMinutes[pid] = n; else delete lateMinutes[pid];
   await persist();
 }
 
 async function markAll(status){
   players.forEach(p => { attendance[p.id] = status; });
+  if (status !== 'late') lateMinutes = {};
   render();
   await persist();
   toast('تم تحضير كل اللاعبات ✓');
@@ -271,6 +300,7 @@ async function markAll(status){
 
 async function clearAll(){
   attendance = {};
+  lateMinutes = {};
   render();
   await persist();
   toast('تم مسح الحضور');
@@ -281,13 +311,13 @@ async function persist(){
   if (!db) return;
   try {
     if (currentSessionId){
-      await db.collection('training').doc(currentSessionId).update({ attendance });
+      await db.collection('training').doc(currentSessionId).update({ attendance, lateMinutes });
     } else {
       // create the session for this date once
       if (creatingSession) return;
       creatingSession = true;
       const ref = await db.collection('training').add({
-        date: currentDate, note:'', attendance, createdAt: Date.now()
+        date: currentDate, note:'', attendance, lateMinutes, createdAt: Date.now()
       });
       currentSessionId = ref.id;
       creatingSession = false;
