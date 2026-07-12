@@ -225,6 +225,26 @@ button{font-family:'Cairo',sans-serif}
 .item-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);margin-bottom:8px;font-size:13px}
 .item-row .rm{background:#fee2e2;color:#dc2626;border:none;border-radius:6px;width:30px;height:30px;cursor:pointer;font-weight:700;flex-shrink:0}
 .lineup-summary{margin-top:10px;font-size:12px;color:var(--text2);font-weight:700;text-align:center}
+/* attendance cards (mobile style) */
+.att-list{display:flex;flex-direction:column;gap:10px}
+.att-card{border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 12px;background:var(--surface)}
+.att-name{font-weight:700;font-size:14px;margin-bottom:9px}
+.att-name .num{color:var(--text3);font-weight:800;margin-inline-end:4px}
+.att-btns{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.att-btns button{padding:9px 2px;border:1px solid var(--border);border-radius:9px;background:var(--bg);
+  font-family:inherit;font-size:11px;font-weight:700;color:var(--text2);cursor:pointer;line-height:1.25;transition:.12s}
+.att-btns button:disabled{cursor:default}
+.att-btns button.on[data-s="present"]{background:var(--green);color:#fff;border-color:var(--green)}
+.att-btns button.on[data-s="absent"]{background:var(--red);color:#fff;border-color:var(--red)}
+.att-btns button.on[data-s="excused"]{background:#3b82f6;color:#fff;border-color:#3b82f6}
+.att-btns button.on[data-s="injured"]{background:#eab308;color:#fff;border-color:#eab308}
+.att-btns button.on[data-s="late"]{background:#f97316;color:#fff;border-color:#f97316}
+.att-late{margin-top:9px;display:flex;align-items:center;gap:8px;background:#fff7ed;border:1px solid #fed7aa;
+  border-radius:9px;padding:8px 10px}
+.att-late label{font-size:12px;font-weight:700;color:#c2410c;white-space:nowrap}
+.att-late input{flex:1;max-width:110px;padding:8px 10px;border:1px solid #fed7aa;border-radius:7px;
+  font-family:inherit;font-size:14px;font-weight:700;text-align:center}
+.att-late .unit{font-size:12px;color:#c2410c;font-weight:700}
 .card-sub{font-size:11px;color:var(--text3)}
 .empty-sm{color:var(--text3);font-size:13px;text-align:center;padding:10px}
 .doc-val{width:120px;padding:7px 9px;border:1px solid var(--border);border-radius:6px;font-family:'Cairo',sans-serif;font-size:13px}
@@ -678,6 +698,7 @@ const T = {
     training_title:'حضور التدريبات', training_count:'حصة', add_session:'+ حصة جديدة', no_sessions:'لا توجد حصص — أضف أول حصة تدريب',
     session:'حصة تدريب', present:'حاضر', absent:'غائب', present_f:'حاضرة', session_details:'تفاصيل الحصة', date:'التاريخ', note:'ملاحظة', note_ex:'مثلاً: تدريب بدني', save_details:'حفظ التفاصيل', attendance:'الحضور', delete:'🗑️ حذف',
     sum_present:'حاضر', sum_absent:'غائب', sum_injured2:'مصابة', sum_excused:'بعذر', excused:'بعذر',
+    late:'تأخير', sum_late:'متأخرة', late_ph:'كام دقيقة؟', min_unit:'دقيقة',
     import_title:'استيراد البيانات', import_sub:'Smart Merge — يضيف الجديد ويحدّث المتغيّر ولا يمسح القديم',
     up_players:'رفع اللاعبات', up_players_dz:'انقر أو اسحب ملف اللاعبات', up_players_hint:'CSV أو Excel — الاسم | رقم القميص | المركز | العمر | الهاتف',
     up_matches:'رفع جدول المباريات', up_matches_dz:'انقر أو اسحب ملف المباريات', up_matches_hint:'CSV أو Excel — التاريخ | الخصم | الملعب | الجولة',
@@ -733,6 +754,7 @@ const T = {
     training_title:'Training Attendance', training_count:'sessions', add_session:'+ New Session', no_sessions:'No sessions — add the first training session',
     session:'Training Session', present:'Present', absent:'Absent', present_f:'present', session_details:'Session Details', date:'Date', note:'Note', note_ex:'e.g. fitness session', save_details:'Save Details', attendance:'Attendance', delete:'🗑️ Delete',
     sum_present:'Present', sum_absent:'Absent', sum_injured2:'Injured', sum_excused:'Excused', excused:'Excused',
+    late:'Late', sum_late:'Late', late_ph:'How many min?', min_unit:'min',
     import_title:'Import Data', import_sub:'Smart Merge — adds new, updates changed, never deletes old',
     up_players:'Upload Players', up_players_dz:'Click or drag the players file', up_players_hint:'CSV or Excel — Name | Number | Position | Age | Phone',
     up_matches:'Upload Match Schedule', up_matches_dz:'Click or drag the matches file', up_matches_hint:'CSV or Excel — Date | Opponent | Venue | Round',
@@ -767,7 +789,7 @@ const ENUM = {
   role:{'مدير فني':'role_td','مدرب عام':'role_head','مدرب مساعد':'role_asst','مدرب حراس':'role_gk','مدير الفريق':'role_mgr','إداري':'role_admin','طبيب':'role_doc','أخصائي علاج طبيعي':'role_pt','أخصائي تغذية':'role_nut','أخرى':'role_other'},
   cat:{'بطاقة رقم قومي':'cat_id','جواز سفر':'cat_passport','تقرير طبي':'cat_medical','صورة':'cat_photo','مستند آخر':'cat_other'},
   reason:{'٣ إنذارات':'reason_3y','طرد':'reason_red','قرار اتحاد':'reason_fed','أخرى':'reason_other'},
-  att:{'present':'present','absent':'absent','injured':'sum_injured2','excused':'excused'},
+  att:{'present':'present','absent':'absent','injured':'sum_injured2','excused':'excused','late':'late'},
   lineup:{'starter':'starter','sub':'sub','excluded':'excluded','injured':'injured','suspended':'suspended'}
 };
 function te(cat, val){ if(lang==='ar') return val||''; const k = ENUM[cat] && ENUM[cat][val]; return k ? t(k) : (val||''); }
@@ -1429,7 +1451,7 @@ const ATT_STATUSES = [{v:'present',t:'حاضر'},{v:'absent',t:'غائب'},{v:'i
 
 function playerAttendance(pid){
   let present=0, total=0;
-  DB.training.forEach(s => { const v=(s.attendance||{})[pid]; if (v){ total++; if (v==='present') present++; } });
+  DB.training.forEach(s => { const v=(s.attendance||{})[pid]; if (v){ total++; if (v==='present'||v==='late') present++; } });
   return { present, total, pct: total ? Math.round(present/total*100) : 0 };
 }
 
@@ -1443,7 +1465,7 @@ function renderTraining(){
   const sorted = [...DB.training].sort((a,b)=>(b.date||'').localeCompare(a.date||''));
   el.innerHTML = sorted.map(s => {
     const att = s.attendance||{};
-    const present = Object.values(att).filter(v=>v==='present').length;
+    const present = Object.values(att).filter(v=>v==='present'||v==='late').length;
     const d = parseLocalDate(s.date); const day=d?d.getDate():'?', mon=d?d.toLocaleDateString(dloc(),{month:'short'}):'';
     return `<div class="match-row" onclick="openSession('${s.id}')">
       <div class="upcoming-date-box"><div class="upcoming-date-day">${day}</div><div class="upcoming-date-mon">${mon}</div></div>
@@ -1475,17 +1497,30 @@ function renderSessionDetail(){
   const s = DB.training.find(x=>x.id===currentSessionId);
   if (!s){ el.innerHTML = `<div class="empty-sm">…</div>`; return; }
   const att = s.attendance||{};
-  const statuses = [{v:'present',t:t('present')},{v:'absent',t:t('absent')},{v:'injured',t:t('injured')},{v:'excused',t:t('excused')}];
-  const counts = {present:0,absent:0,injured:0,excused:0};
+  const lateMin = s.lateMinutes||{};
+  const statuses = [
+    {v:'present',t:t('present')},{v:'absent',t:t('absent')},{v:'excused',t:t('excused')},
+    {v:'injured',t:t('injured')},{v:'late',t:t('late')}
+  ];
+  const counts = {present:0,absent:0,injured:0,excused:0,late:0};
   DB.players.forEach(p => { const v=att[p.id]; if (counts[v]!==undefined) counts[v]++; });
   const rows = !DB.players.length ? `<div class="empty-sm">${t('add_players_first')}</div>`
     : [...DB.players].sort((a,b)=>(a.number||999)-(b.number||999)).map(p => {
         const cur = att[p.id]||'';
-        return `<div class="lineup-row"><span>${p.number?('#'+p.number+' '):''}${p.name}</span>
-          <select onchange="setAttendance('${p.id}',this.value)" ${isAdmin?'':'disabled'}>
-            <option value="" ${cur===''?'selected':''}>—</option>
-            ${statuses.map(st=>`<option value="${st.v}" ${cur===st.v?'selected':''}>${st.t}</option>`).join('')}
-          </select></div>`;
+        const btns = statuses.map(st =>
+          `<button data-s="${st.v}" class="${cur===st.v?'on':''}" onclick="setAttendance('${p.id}','${cur===st.v?'':st.v}')" ${isAdmin?'':'disabled'}>${st.t}</button>`
+        ).join('');
+        const lateBox = cur==='late'
+          ? `<div class="att-late"><label>${t('late')}:</label>
+               <input type="number" inputmode="numeric" min="0" value="${lateMin[p.id]||''}" placeholder="${t('late_ph')}"
+                 onchange="setLateMinutes('${p.id}',this.value)" ${isAdmin?'':'disabled'}>
+               <span class="unit">${t('min_unit')}</span></div>`
+          : '';
+        return `<div class="att-card">
+          <div class="att-name">${p.number?(`<span class="num">#${p.number}</span>`):''}${p.name}</div>
+          <div class="att-btns">${btns}</div>
+          ${lateBox}
+        </div>`;
       }).join('');
   el.innerHTML = `
     <div class="detail-head">
@@ -1503,8 +1538,8 @@ function renderSessionDetail(){
       </div></div>
     <div class="card"><div class="card-header"><span class="card-title">${t('attendance')}</span></div>
       <div class="card-body">
-        <div class="lineup-list">${rows}</div>
-        <div class="lineup-summary">${t('sum_present')}: ${counts.present} • ${t('sum_absent')}: ${counts.absent} • ${t('sum_injured2')}: ${counts.injured} • ${t('sum_excused')}: ${counts.excused}</div>
+        <div class="att-list">${rows}</div>
+        <div class="lineup-summary">${t('sum_present')}: ${counts.present} • ${t('sum_absent')}: ${counts.absent} • ${t('sum_excused')}: ${counts.excused} • ${t('sum_injured2')}: ${counts.injured} • ${t('sum_late')}: ${counts.late}</div>
       </div></div>`;
 }
 async function setAttendance(pid, status){
@@ -1512,7 +1547,22 @@ async function setAttendance(pid, status){
   const s = DB.training.find(x=>x.id===currentSessionId); if (!s) return;
   const att = Object.assign({}, s.attendance||{});
   if (status) att[pid]=status; else delete att[pid];
-  try { await db.collection('training').doc(currentSessionId).update({ attendance:att }); }
+  const upd = { attendance:att };
+  // لو الحالة مش تأخير، نمسح دقايق التأخير
+  if (status!=='late'){
+    const lm = Object.assign({}, s.lateMinutes||{});
+    if (lm[pid]!==undefined){ delete lm[pid]; upd.lateMinutes = lm; }
+  }
+  try { await db.collection('training').doc(currentSessionId).update(upd); }
+  catch(e){ console.error(e); toast(t('save_err')); }
+}
+async function setLateMinutes(pid, val){
+  if (!isAdmin) return;
+  const s = DB.training.find(x=>x.id===currentSessionId); if (!s) return;
+  const lm = Object.assign({}, s.lateMinutes||{});
+  const n = parseInt(val);
+  if (n>0) lm[pid]=n; else delete lm[pid];
+  try { await db.collection('training').doc(currentSessionId).update({ lateMinutes:lm }); }
   catch(e){ console.error(e); toast(t('save_err')); }
 }
 async function saveSessionMeta(){
