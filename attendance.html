@@ -40,6 +40,7 @@
   .date-row{display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.15);border-radius:10px;padding:8px 10px;}
   .date-row label{font-size:12px;font-weight:700;white-space:nowrap;}
   .date-row input{flex:1;border:none;background:#fff;color:var(--black);border-radius:7px;padding:8px;font-size:14px;font-weight:600;font-family:inherit;}
+  .date-row select{flex:1;border:none;background:#fff;color:var(--black);border-radius:7px;padding:8px;font-size:14px;font-weight:700;font-family:inherit;}
 
   /* ===== Summary bar ===== */
   .summary{display:grid;grid-template-columns:repeat(5,1fr);gap:5px;padding:12px 12px 4px;}
@@ -111,8 +112,17 @@
     <div class="online"><span class="dot" id="dot"></span><span id="onlineTxt">جاري الاتصال…</span></div>
   </div>
   <div class="date-row">
-    <label>📅 تاريخ التمرين</label>
+    <label>📅 التاريخ</label>
     <input type="date" id="sessDate">
+  </div>
+  <div class="date-row" style="margin-top:8px">
+    <label>📋 نوع الحصة</label>
+    <select id="sessType">
+      <option value="training">🏃 تدريب</option>
+      <option value="meeting">🗣️ اجتماع فني</option>
+      <option value="mental">🧠 منتال سيشن</option>
+      <option value="nutrition">🍎 نيوتريشن</option>
+    </select>
   </div>
 </header>
 
@@ -162,6 +172,7 @@ let currentSessionId = null;
 let currentDate = '';
 let attendance = {};       // local mirror {playerId: status}
 let lateMinutes = {};      // local mirror {playerId: minutes}
+let sessionType = 'training';
 let creatingSession = false;
 
 /* ===== Init ===== */
@@ -207,6 +218,16 @@ dateInput.addEventListener('change', () => {
   render();
 });
 
+const typeInput = document.getElementById('sessType');
+typeInput.addEventListener('change', async () => {
+  sessionType = typeInput.value || 'training';
+  // لو الحصة موجودة، حدّث نوعها فورًا (لو لسه ما اتعملتش، هيتحفظ مع أول تسجيل)
+  if (currentSessionId){
+    try { await db.collection('training').doc(currentSessionId).update({ type: sessionType }); }
+    catch(e){ console.error(e); }
+  }
+});
+
 // Find existing session for currentDate, or reset to fresh (created on first tap)
 function syncToDate(){
   const found = sessions.find(s => s.date === currentDate);
@@ -214,11 +235,14 @@ function syncToDate(){
     currentSessionId = found.id;
     attendance = Object.assign({}, found.attendance || {});
     lateMinutes = Object.assign({}, found.lateMinutes || {});
+    sessionType = found.type || 'training';
   } else {
     currentSessionId = null;
     attendance = {};
     lateMinutes = {};
+    sessionType = 'training';
   }
+  const ti = document.getElementById('sessType'); if (ti) ti.value = sessionType;
 }
 
 /* ===== Render ===== */
@@ -311,13 +335,13 @@ async function persist(){
   if (!db) return;
   try {
     if (currentSessionId){
-      await db.collection('training').doc(currentSessionId).update({ attendance, lateMinutes });
+      await db.collection('training').doc(currentSessionId).update({ attendance, lateMinutes, type: sessionType });
     } else {
       // create the session for this date once
       if (creatingSession) return;
       creatingSession = true;
       const ref = await db.collection('training').add({
-        date: currentDate, note:'', attendance, lateMinutes, createdAt: Date.now()
+        date: currentDate, note:'', type: sessionType, attendance, lateMinutes, createdAt: Date.now()
       });
       currentSessionId = ref.id;
       creatingSession = false;

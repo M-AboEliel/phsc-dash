@@ -516,6 +516,7 @@ body.viewer .admin-only{display:none!important}
         <button class="btn btn-outline" onclick="exportMatchesReport()" data-i18n="exp_matches">⬇️ المباريات والنتائج</button>
         <button class="btn btn-outline" onclick="exportScorersCards()" data-i18n="exp_scorers">⬇️ الهدافات والكروت</button>
         <button class="btn btn-outline" onclick="exportAttendance()" data-i18n="exp_att">⬇️ حضور التدريبات</button>
+        <button class="btn btn-outline" onclick="exportAttendanceMatrix()" data-i18n="att_matrix_export">⬇️ كشف الحضور التفصيلي</button>
         <button class="btn btn-outline" onclick="exportDocumentation()" data-i18n="exp_doc">⬇️ كشف توثيق العقود</button>
       </div></div>
     <div id="reportsContent"></div>
@@ -709,6 +710,7 @@ const T = {
     susp_match_ph:'الماتش الموقوفة فيه', note_ph:'ملاحظة (اختياري)', susp_hint:'للإيقاف أكثر من ماتش (قرار اتحاد)، سجّل اللاعبة في كل ماتش على حدة.',
     training_title:'حضور التدريبات', training_count:'حصة', add_session:'+ حصة جديدة', no_sessions:'لا توجد حصص — أضف أول حصة تدريب',
     session:'حصة تدريب', present:'حاضر', absent:'غائب', present_f:'حاضرة', session_details:'تفاصيل الحصة', date:'التاريخ', note:'ملاحظة', note_ex:'مثلاً: تدريب بدني', save_details:'حفظ التفاصيل', attendance:'الحضور', delete:'🗑️ حذف',
+    stype_label:'نوع الحصة', stype_training:'تدريب', stype_meeting:'اجتماع فني', stype_mental:'منتال سيشن', stype_nutrition:'نيوتريشن', att_matrix_report:'كشف الحضور التفصيلي', att_matrix_export:'⬇️ كشف الحضور التفصيلي', att_legend:'✓ حاضرة · ✗ غائبة · ع بعذر · ص مصابة · ⏱ متأخرة (بالدقايق)', th_pct2:'النسبة',
     sum_present:'حاضر', sum_absent:'غائب', sum_injured2:'مصابة', sum_excused:'بعذر', excused:'بعذر',
     late:'تأخير', sum_late:'متأخرة', late_ph:'كام دقيقة؟', min_unit:'دقيقة',
     import_title:'استيراد البيانات', import_sub:'Smart Merge — يضيف الجديد ويحدّث المتغيّر ولا يمسح القديم',
@@ -765,6 +767,7 @@ const T = {
     susp_match_ph:'Match suspended for', note_ph:'Note (optional)', susp_hint:'For multi-match bans (federation), record the player for each match separately.',
     training_title:'Training Attendance', training_count:'sessions', add_session:'+ New Session', no_sessions:'No sessions — add the first training session',
     session:'Training Session', present:'Present', absent:'Absent', present_f:'present', session_details:'Session Details', date:'Date', note:'Note', note_ex:'e.g. fitness session', save_details:'Save Details', attendance:'Attendance', delete:'🗑️ Delete',
+    stype_label:'Session type', stype_training:'Training', stype_meeting:'Technical Meeting', stype_mental:'Mental Session', stype_nutrition:'Nutrition', att_matrix_report:'Detailed Attendance Sheet', att_matrix_export:'⬇️ Detailed Attendance Sheet', att_legend:'✓ Present · ✗ Absent · E Excused · I Injured · ⏱ Late (minutes)', th_pct2:'Rate',
     sum_present:'Present', sum_absent:'Absent', sum_injured2:'Injured', sum_excused:'Excused', excused:'Excused',
     late:'Late', sum_late:'Late', late_ph:'How many min?', min_unit:'min',
     import_title:'Import Data', import_sub:'Smart Merge — adds new, updates changed, never deletes old',
@@ -1467,6 +1470,11 @@ function playerAttendance(pid){
   return { present, total, pct: total ? Math.round(present/total*100) : 0 };
 }
 
+const SESSION_TYPES = ['training','meeting','mental','nutrition'];
+const SESSION_TYPE_ICON = { training:'🏃', meeting:'🗣️', mental:'🧠', nutrition:'🍎' };
+function stypeLabel(type){ return t('stype_' + (SESSION_TYPES.includes(type)?type:'training')); }
+function stypeIcon(type){ return SESSION_TYPE_ICON[type] || SESSION_TYPE_ICON.training; }
+
 function renderTraining(){
   const el = document.getElementById('trainingList'); if (!el) return;
   document.getElementById('trainingCount').textContent = DB.training.length + ' ' + t('training_count');
@@ -1481,7 +1489,7 @@ function renderTraining(){
     const d = parseLocalDate(s.date); const day=d?d.getDate():'?', mon=d?d.toLocaleDateString(dloc(),{month:'short'}):'';
     return `<div class="match-row" onclick="openSession('${s.id}')">
       <div class="upcoming-date-box"><div class="upcoming-date-day">${day}</div><div class="upcoming-date-mon">${mon}</div></div>
-      <div class="match-main"><div class="match-vs">${t('session')}</div><div class="match-sub">${s.note||formatDate(s.date)}</div></div>
+      <div class="match-main"><div class="match-vs">${stypeIcon(s.type)} ${stypeLabel(s.type)}</div><div class="match-sub">${s.note||formatDate(s.date)}</div></div>
       <div class="match-score" style="font-size:16px">${present}<span style="font-size:11px;color:var(--text3)"> ${t('present_f')}</span></div>
     </div>`;
   }).join('');
@@ -1490,7 +1498,7 @@ function renderTraining(){
 async function createSession(){
   if (!isAdmin) return;
   const date = dateToISO(new Date());
-  try { const ref = await db.collection('training').add({ date, note:'', attendance:{}, createdAt:Date.now() }); toast('تم إنشاء الحصة'); openSession(ref.id); }
+  try { const ref = await db.collection('training').add({ date, type:'training', note:'', attendance:{}, createdAt:Date.now() }); toast('تم إنشاء الحصة'); openSession(ref.id); }
   catch(e){ console.error(e); toast('خطأ في الإنشاء'); }
 }
 function openSession(id){
@@ -1537,15 +1545,19 @@ function renderSessionDetail(){
   el.innerHTML = `
     <div class="detail-head">
       <button class="back-btn" onclick="backToTraining()">${t('back')}</button>
-      <div style="flex:1"><div class="detail-title">${t('session')}</div><div class="detail-meta">${formatDate(s.date)}${s.note?(' • '+s.note):''}</div></div>
+      <div style="flex:1"><div class="detail-title">${stypeIcon(s.type)} ${stypeLabel(s.type)}</div><div class="detail-meta">${formatDate(s.date)}${s.note?(' • '+s.note):''}</div></div>
       <button class="btn btn-outline admin-only" onclick="deleteSession('${s.id}')">${t('delete')}</button>
     </div>
     <div class="card"><div class="card-header"><span class="card-title">${t('session_details')}</span></div>
       <div class="card-body">
         <div class="field-row">
           <div class="field"><label>${t('date')}</label><input type="date" id="sessDate" value="${s.date||''}" ${isAdmin?'':'disabled'}></div>
-          <div class="field"><label>${t('note')}</label><input type="text" id="sessNote" value="${(s.note||'').replace(/"/g,'&quot;')}" placeholder="${t('note_ex')}" ${isAdmin?'':'disabled'}></div>
+          <div class="field"><label>${t('stype_label')}</label>
+            <select id="sessType" ${isAdmin?'':'disabled'}>
+              ${SESSION_TYPES.map(tp=>`<option value="${tp}" ${(s.type||'training')===tp?'selected':''}>${t('stype_'+tp)}</option>`).join('')}
+            </select></div>
         </div>
+        <div class="field"><label>${t('note')}</label><input type="text" id="sessNote" value="${(s.note||'').replace(/"/g,'&quot;')}" placeholder="${t('note_ex')}" ${isAdmin?'':'disabled'}></div>
         <button class="btn btn-primary admin-only" style="width:100%;justify-content:center" onclick="saveSessionMeta()">${t('save_details')}</button>
       </div></div>
     <div class="card"><div class="card-header"><span class="card-title">${t('attendance')}</span></div>
@@ -1581,7 +1593,8 @@ async function saveSessionMeta(){
   if (!isAdmin) return;
   const date = document.getElementById('sessDate').value;
   const note = document.getElementById('sessNote').value.trim();
-  try { await db.collection('training').doc(currentSessionId).update({ date, note }); toast(t('saved_ok')); }
+  const type = document.getElementById('sessType').value || 'training';
+  try { await db.collection('training').doc(currentSessionId).update({ date, note, type }); toast(t('saved_ok')); }
   catch(e){ console.error(e); toast(t('save_err')); }
 }
 async function deleteSession(id){
@@ -1786,18 +1799,59 @@ async function setSeasonValue(pid, val){
 function playerStarts(pid){ let n=0; DB.matches.forEach(m=>{ if(getLineupStatus(m,pid)==='starter') n++; }); return n; }
 function playerSubApps(pid){ let n=0; DB.matches.forEach(m=>{ if(getLineupStatus(m,pid)==='sub') n++; }); return n; }
 
+function attSym(status, lateMin){
+  if (status==='present') return {t:'✓', c:'var(--green)'};
+  if (status==='absent')  return {t:'✗', c:'var(--red)'};
+  if (status==='excused') return {t:(lang==='ar'?'ع':'E'), c:'#3b82f6'};
+  if (status==='injured') return {t:(lang==='ar'?'ص':'I'), c:'#eab308'};
+  if (status==='late')    return {t:'⏱'+(lateMin||''), c:'#f97316'};
+  return {t:'–', c:'var(--text3)'};
+}
+function attMatrixSessions(){
+  return [...DB.training].sort((a,b)=>(a.date||'').localeCompare(b.date||''));
+}
 function renderReports(){
   const el = document.getElementById('reportsContent'); if (!el) return;
   const attRows = DB.players.map(p=>({p,a:playerAttendance(p.id)})).filter(x=>x.a.total>0).sort((x,y)=>y.a.pct-x.a.pct);
   const attHtml = attRows.length ? `<table class="data-table"><thead><tr><th>${t('th_player')}</th><th>${t('th_present')}</th><th>${t('th_total_sessions')}</th><th>${t('th_pct')}</th></tr></thead>
     <tbody>${attRows.map(x=>`<tr><td>${x.p.name}</td><td>${x.a.present}</td><td>${x.a.total}</td><td><b style="color:${x.a.pct>=75?'var(--green)':x.a.pct>=50?'var(--yellow)':'var(--red)'}">${x.a.pct}%</b></td></tr>`).join('')}</tbody></table>`
     : `<div class="empty-sm">${t('no_sessions_rec')}</div>`;
+
+  // كشف الحضور التفصيلي (لاعبة × حصص)
+  const sess = attMatrixSessions();
+  let matrixHtml;
+  if (!sess.length || !DB.players.length){
+    matrixHtml = `<div class="empty-sm">${t('no_sessions_rec')}</div>`;
+  } else {
+    const head = `<tr><th style="position:sticky;right:0;background:var(--bg);z-index:1">${t('th_player')}</th>` +
+      sess.map(s=>{ const d=parseLocalDate(s.date);
+        const lbl = d?`${d.getDate()}/${d.getMonth()+1}`:'?';
+        return `<th title="${stypeLabel(s.type)}"><div style="font-size:11px">${lbl}</div><div style="font-size:13px">${stypeIcon(s.type)}</div></th>`;
+      }).join('') + `<th>${t('th_pct2')}</th></tr>`;
+    const body = [...DB.players].sort((a,b)=>(a.number||999)-(b.number||999)).map(p=>{
+      const a = playerAttendance(p.id);
+      const cells = sess.map(s=>{
+        const st=(s.attendance||{})[p.id]||''; const lm=(s.lateMinutes||{})[p.id];
+        const sy=attSym(st,lm);
+        return `<td style="text-align:center;font-weight:800;color:${sy.c}">${sy.t}</td>`;
+      }).join('');
+      const pct = a.total?a.pct:0;
+      const pctCol = pct>=75?'var(--green)':pct>=50?'var(--yellow)':'var(--red)';
+      return `<tr><td style="position:sticky;right:0;background:var(--surface);font-weight:700">${p.number?('#'+p.number+' '):''}${p.name}</td>${cells}<td style="text-align:center"><b style="color:${pctCol}">${a.total?pct+'%':'–'}</b></td></tr>`;
+    }).join('');
+    matrixHtml = `<div style="font-size:11px;color:var(--text3);margin-bottom:8px">${t('att_legend')}</div>
+      <div class="table-wrap" style="overflow-x:auto"><table class="data-table" style="min-width:100%;white-space:nowrap">
+      <thead>${head}</thead><tbody>${body}</tbody></table></div>`;
+  }
+
   const partRows = DB.players.map(p=>({p,st:playerStarts(p.id),sb:playerSubApps(p.id)})).filter(x=>x.st>0||x.sb>0).sort((x,y)=>(y.st+y.sb)-(x.st+x.sb));
   const partHtml = partRows.length ? `<table class="data-table"><thead><tr><th>${t('th_player')}</th><th>${t('th_starts')}</th><th>${t('th_subs')}</th><th>${t('th_total_part')}</th></tr></thead>
     <tbody>${partRows.map(x=>`<tr><td>${x.p.name}</td><td>${x.st}</td><td>${x.sb}</td><td><b>${x.st+x.sb}</b></td></tr>`).join('')}</tbody></table>`
     : `<div class="empty-sm">${t('no_lineups')}</div>`;
 
   el.innerHTML = `
+    <div class="card"><div class="card-header"><span class="card-title">${t('att_matrix_report')}</span></div>
+      <div class="card-body">${matrixHtml}</div></div>
     <div class="card"><div class="card-header"><span class="card-title">${t('att_report')}</span></div>
       <div class="card-body table-wrap">${attHtml}</div></div>
     <div class="card"><div class="card-header"><span class="card-title">${t('part_report')}</span></div>
@@ -1838,6 +1892,31 @@ function exportScorersCards(){
 function exportAttendance(){
   const rows = DB.players.map(p=>{ const a=playerAttendance(p.id); return {'اللاعبة':p.name,'حاضر':a.present,'إجمالي الحصص':a.total,'النسبة %':a.pct}; });
   downloadXLSX([{name:'حضور التدريبات',rows:rows.length?rows:[{}]}], 'حضور_التدريبات.xlsx');
+  toast(t('exported_ok'));
+}
+function exportAttendanceMatrix(){
+  const sess = [...DB.training].sort((a,b)=>(a.date||'').localeCompare(b.date||''));
+  const symTxt = (st, lm) => {
+    if (st==='present') return 'حاضرة';
+    if (st==='absent')  return 'غائبة';
+    if (st==='excused') return 'بعذر';
+    if (st==='injured') return 'مصابة';
+    if (st==='late')    return 'تأخير ' + (lm||'') + ' د';
+    return '';
+  };
+  const stypeAr = { training:'تدريب', meeting:'اجتماع فني', mental:'منتال', nutrition:'نيوتريشن' };
+  const rows = [...DB.players].sort((a,b)=>(a.number||999)-(b.number||999)).map(p=>{
+    const row = { 'اللاعبة': p.name };
+    sess.forEach(s=>{
+      const d = s.date || '';
+      const label = `${d} (${stypeAr[s.type]||'تدريب'})`;
+      row[label] = symTxt((s.attendance||{})[p.id]||'', (s.lateMinutes||{})[p.id]);
+    });
+    const a = playerAttendance(p.id);
+    row['النسبة %'] = a.total ? a.pct : '';
+    return row;
+  });
+  downloadXLSX([{name:'كشف الحضور',rows:rows.length?rows:[{}]}], 'كشف_الحضور_التفصيلي.xlsx');
   toast(t('exported_ok'));
 }
 function exportDocumentation(){
