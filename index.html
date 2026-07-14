@@ -366,6 +366,42 @@ body.viewer .admin-only{display:none!important}
   .att-btns{gap:4px}
   .att-btns button{font-size:10px;padding:8px 1px}
 }
+/* ===== موبايل: تحويل الجداول لكروت ===== */
+@media(max-width:760px){
+  .data-table:not(.nowrap-table),
+  .data-table:not(.nowrap-table) tbody,
+  .data-table:not(.nowrap-table) tr,
+  .data-table:not(.nowrap-table) td{display:block;width:100%}
+  .data-table:not(.nowrap-table) thead{display:none}
+  .data-table:not(.nowrap-table) tr{
+    background:var(--surface);border:1px solid var(--border);border-radius:12px;
+    margin-bottom:10px;padding:4px 14px;box-shadow:0 1px 4px rgba(0,0,0,.05)}
+  .data-table:not(.nowrap-table) tr:hover td{background:transparent}
+  .data-table:not(.nowrap-table) td{
+    display:flex;justify-content:space-between;align-items:center;gap:14px;
+    padding:9px 0;border-bottom:1px solid var(--border);text-align:start;font-size:13px}
+  .data-table:not(.nowrap-table) tr td:last-child{border-bottom:none}
+  .data-table:not(.nowrap-table) td::before{
+    content:attr(data-label);font-weight:700;color:var(--text2);font-size:12px;flex-shrink:0}
+  .data-table:not(.nowrap-table) td:first-child{
+    font-weight:800;font-size:15px;border-bottom:2px solid var(--border);padding:10px 0;color:var(--text)}
+  .data-table:not(.nowrap-table) td:first-child::before{content:''}
+  .table-wrap{overflow:visible}
+  .nowrap-table, .nowrap-table + *{ } /* المصفوفة تفضل جدول يتزحلق */
+}
+/* ===== موبايل: شريط تنقل سفلي ===== */
+#bottomNav{display:none}
+@media(max-width:860px){
+  #bottomNav{display:flex;position:fixed;bottom:0;left:0;right:0;z-index:90;background:var(--surface);
+    border-top:1px solid var(--border);box-shadow:0 -2px 12px rgba(0,0,0,.06);
+    padding:6px 4px calc(env(safe-area-inset-bottom) + 6px)}
+  .bn-item{flex:1;background:none;border:none;font-family:inherit;cursor:pointer;
+    display:flex;flex-direction:column;align-items:center;gap:3px;padding:5px 2px;
+    color:var(--text3);font-size:10px;font-weight:700;border-radius:10px;transition:.12s}
+  .bn-item .bn-ico{font-size:19px;line-height:1}
+  .bn-item.active{color:var(--red)}
+  #main{padding-bottom:78px}
+}
 </style>
 </head>
 <body class="viewer">
@@ -408,6 +444,15 @@ body.viewer .admin-only{display:none!important}
   </div>
 </aside>
 <div id="backdrop" onclick="toggleSidebar(false)"></div>
+
+<!-- ===== BOTTOM NAV (mobile) ===== -->
+<nav id="bottomNav">
+  <button class="bn-item active" data-tab="dashboard" onclick="goTab('dashboard')"><span class="bn-ico">🏠</span><span data-i18n="nav_home">الرئيسية</span></button>
+  <button class="bn-item" data-tab="matches" onclick="goTab('matches')"><span class="bn-ico">📅</span><span data-i18n="nav_matches">المباريات</span></button>
+  <button class="bn-item" data-tab="players" onclick="goTab('players')"><span class="bn-ico">👩</span><span data-i18n="nav_players">اللاعبات</span></button>
+  <button class="bn-item" data-tab="training" onclick="goTab('training')"><span class="bn-ico">🏃</span><span data-i18n="bn_training">الحضور</span></button>
+  <button class="bn-item" onclick="toggleSidebar(true)"><span class="bn-ico">☰</span><span data-i18n="more">المزيد</span></button>
+</nav>
 
 <!-- ===== MAIN ===== -->
 <main id="main">
@@ -722,7 +767,7 @@ try { const sv = localStorage.getItem('phsc_lang'); if (sv) lang = sv; } catch(e
 const T = {
   ar: {
     brand_sub:'نظام إدارة الفريق', sec_general:'عام', sec_admin:'الإدارة',
-    nav_home:'الرئيسية', nav_matches:'المباريات', nav_players:'اللاعبات', nav_staff:'الجهاز الفني والإداري',
+    nav_home:'الرئيسية', nav_matches:'المباريات', nav_players:'اللاعبات', nav_staff:'الجهاز الفني والإداري', more:'المزيد', bn_training:'الحضور',
     nav_scorers:'الهدافات', nav_cards:'الكروت', nav_training:'حضور التدريبات', nav_import:'الاستيراد',
     nav_reports:'التقارير', nav_files:'ملفات', nav_contracts:'عقود', nav_documentation:'توثيق عقود',
     connecting:'جاري الاتصال…', online:'متصل', offline:'غير متصل', login_admin:'🔒 دخول الإدارة', logout:'🚪 خروج', settings:'⚙️ الإعدادات',
@@ -779,7 +824,7 @@ const T = {
   },
   en: {
     brand_sub:'Team Management System', sec_general:'General', sec_admin:'Admin',
-    nav_home:'Home', nav_matches:'Matches', nav_players:'Players', nav_staff:'Technical & Admin Staff',
+    nav_home:'Home', nav_matches:'Matches', nav_players:'Players', nav_staff:'Technical & Admin Staff', more:'More', bn_training:'Attendance',
     nav_scorers:'Scorers', nav_cards:'Cards', nav_training:'Training Attendance', nav_import:'Import',
     nav_reports:'Reports', nav_files:'Files', nav_contracts:'Contracts', nav_documentation:'Contract Docs',
     connecting:'Connecting…', online:'Online', offline:'Offline', login_admin:'🔒 Admin Login', logout:'🚪 Logout', settings:'⚙️ Settings',
@@ -966,8 +1011,31 @@ function showTab(tab, el){
   document.getElementById('tab-' + tab).classList.add('active');
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   if (el) el.classList.add('active');
+  else { const it = document.querySelector('.nav-item[data-tab="'+tab+'"]'); if (it) it.classList.add('active'); }
+  // مزامنة الشريط السفلي
+  document.querySelectorAll('#bottomNav .bn-item[data-tab]').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+  window.scrollTo({ top:0, behavior:'auto' });
   if (window.innerWidth <= 860) toggleSidebar(false);
 }
+function goTab(tab){ showTab(tab); }
+
+/* عناوين الأعمدة للكروت على الموبايل — تُضاف تلقائيًا لكل جدول */
+function labelizeTables(){
+  document.querySelectorAll('#main .data-table:not(.nowrap-table)').forEach(tbl => {
+    const heads = [...tbl.querySelectorAll('thead th')].map(th => th.textContent.trim());
+    if (!heads.length) return;
+    tbl.querySelectorAll('tbody tr').forEach(tr => {
+      [...tr.children].forEach((td, i) => { if (heads[i]) td.setAttribute('data-label', heads[i]); });
+    });
+  });
+}
+let _labelTimer = null;
+function scheduleLabelize(){ clearTimeout(_labelTimer); _labelTimer = setTimeout(labelizeTables, 60); }
+(function watchTables(){
+  const main = document.getElementById('main'); if (!main) return;
+  new MutationObserver(scheduleLabelize).observe(main, { childList:true, subtree:true });
+  scheduleLabelize();
+})();
 function toggleSidebar(open){
   document.getElementById('sidebar').classList.toggle('open', open);
   document.getElementById('backdrop').classList.toggle('show', open);
@@ -1879,7 +1947,7 @@ function renderReports(){
       return `<tr><td style="position:sticky;right:0;background:var(--surface);font-weight:700">${p.number?('#'+p.number+' '):''}${p.name}</td>${cells}<td style="text-align:center"><b style="color:${pctCol}">${a.total?pct+'%':'–'}</b></td></tr>`;
     }).join('');
     matrixHtml = `<div style="font-size:11px;color:var(--text3);margin-bottom:8px">${t('att_legend')}</div>
-      <div class="table-wrap" style="overflow-x:auto"><table class="data-table" style="min-width:100%;white-space:nowrap">
+      <div class="table-wrap" style="overflow-x:auto"><table class="data-table nowrap-table" style="min-width:100%;white-space:nowrap">
       <thead>${head}</thead><tbody>${body}</tbody></table></div>`;
   }
 
