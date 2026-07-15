@@ -609,6 +609,7 @@ body.viewer .admin-only{display:none!important}
         <button class="btn btn-outline" onclick="exportScorersCards()" data-i18n="exp_scorers">⬇️ الهدافات والكروت</button>
         <button class="btn btn-outline" onclick="exportAttendance()" data-i18n="exp_att">⬇️ حضور التدريبات</button>
         <button class="btn btn-outline" onclick="exportAttendanceMatrix()" data-i18n="att_matrix_export">⬇️ كشف الحضور التفصيلي</button>
+        <button class="btn btn-outline" onclick="exportPenalties()" data-i18n="pen_export">⬇️ الجزاءات الإدارية</button>
         <button class="btn btn-outline" onclick="exportDocumentation()" data-i18n="exp_doc">⬇️ كشف توثيق العقود</button>
       </div></div>
     <div id="reportsContent"></div>
@@ -818,6 +819,7 @@ const T = {
     excel_export:'تصدير Excel', exp_players_staff:'⬇️ اللاعبات والجهاز', exp_matches:'⬇️ المباريات والنتائج', exp_scorers:'⬇️ الهدافات والكروت', exp_att:'⬇️ حضور التدريبات', exp_doc:'⬇️ كشف توثيق العقود',
     att_report:'نسبة حضور التدريبات', th_present:'حاضر', th_total_sessions:'إجمالي الحصص', th_pct:'النسبة', no_sessions_rec:'لا توجد حصص مسجّلة',
     part_report:'مشاركة اللاعبات (أساسي / بديل)', th_starts:'أساسي', th_subs:'بديل', th_total_part:'إجمالي المشاركات', no_lineups:'لا توجد تشكيلات مسجّلة',
+    pen_report:'⚖️ تقرير الجزاءات الإدارية', pen_export:'⬇️ الجزاءات الإدارية', th_reason2:'السبب', th_session:'الحصة', no_pens:'لا توجد جزاءات مسجّلة', th_pen_count:'عدد الجزاءات', pen_total:'إجمالي الجزاءات',
     doc_title:'توثيق العقود', doc_sub:'مصرية: اتحاد ٤٪ + تنمية ٣٪ = ٧٪ (ج.م) · أجنبية: اتحاد ٥٪ + تنمية ٣٪ = ٨٪ ($)',
     th_nat:'الجنسية', th_season_val:'قيمة الموسم', th_fed:'الاتحاد', th_dev:'التنمية', th_doc_total:'إجمالي التوثيق',
     total_eg:'إجمالي توثيق المصريات (٧٪)', total_fo:'إجمالي توثيق الأجنبيات (٨٪)', export_doc:'⬇️ تصدير الكشف Excel', add_players_first:'أضف لاعبات الأول',
@@ -876,6 +878,7 @@ const T = {
     excel_export:'Excel Export', exp_players_staff:'⬇️ Players & Staff', exp_matches:'⬇️ Matches & Results', exp_scorers:'⬇️ Scorers & Cards', exp_att:'⬇️ Training Attendance', exp_doc:'⬇️ Contract Documentation',
     att_report:'Training Attendance Rate', th_present:'Present', th_total_sessions:'Total sessions', th_pct:'Rate', no_sessions_rec:'No sessions recorded',
     part_report:'Player Participation (starter / sub)', th_starts:'Starts', th_subs:'Sub apps', th_total_part:'Total apps', no_lineups:'No lineups recorded',
+    pen_report:'⚖️ Admin Penalties Report', pen_export:'⬇️ Admin Penalties', th_reason2:'Reason', th_session:'Session', no_pens:'No penalties recorded', th_pen_count:'Penalties', pen_total:'Total penalties',
     doc_title:'Contract Documentation', doc_sub:'Egyptian: Fed 4% + Dev 3% = 7% (EGP) · Foreign: Fed 5% + Dev 3% = 8% ($)',
     th_nat:'Nationality', th_season_val:'Season Value', th_fed:'Federation', th_dev:'Development', th_doc_total:'Total Documentation',
     total_eg:'Total Egyptian documentation (7%)', total_fo:'Total foreign documentation (8%)', export_doc:'⬇️ Export Sheet (Excel)', add_players_first:'Add players first',
@@ -1995,13 +1998,48 @@ function renderReports(){
     <tbody>${partRows.map(x=>`<tr><td>${x.p.name}</td><td>${x.st}</td><td>${x.sb}</td><td><b>${x.st+x.sb}</b></td></tr>`).join('')}</tbody></table>`
     : `<div class="empty-sm">${t('no_lineups')}</div>`;
 
+  // ===== تقرير الجزاءات الإدارية =====
+  const penList = allPenalties();
+  const penCounts = {};
+  penList.forEach(x => { penCounts[x.playerId] = (penCounts[x.playerId]||0) + 1; });
+  const penSummary = Object.keys(penCounts)
+    .map(id => ({ id, n: penCounts[id] }))
+    .sort((a,b)=>b.n-a.n);
+  const penHtml = penList.length ? `
+    <div style="font-size:12px;color:var(--text2);font-weight:800;margin-bottom:10px">${t('pen_total')}: ${penList.length}</div>
+    <table class="data-table"><thead><tr><th>${t('th_player')}</th><th>${t('th_pen_count')}</th></tr></thead>
+      <tbody>${penSummary.map(x=>`<tr><td>${playerName(x.id)}</td><td><b style="color:#7c3aed">${x.n}</b></td></tr>`).join('')}</tbody></table>
+    <div style="height:14px"></div>
+    <table class="data-table"><thead><tr><th>${t('th_player')}</th><th>${t('th_date')}</th><th>${t('th_session')}</th><th>${t('th_reason2')}</th></tr></thead>
+      <tbody>${penList.map(x=>`<tr>
+        <td>${playerName(x.playerId)}</td>
+        <td>${formatDate(x.date)}</td>
+        <td><span class="badge badge-home">${stypeIcon(x.type)} ${stypeLabel(x.type)}</span></td>
+        <td>${x.reason ? x.reason : '—'}</td></tr>`).join('')}</tbody></table>`
+    : `<div class="empty-sm">${t('no_pens')}</div>`;
+
   el.innerHTML = `
     <div class="card"><div class="card-header"><span class="card-title">${t('att_matrix_report')}</span></div>
       <div class="card-body">${matrixHtml}</div></div>
+    <div class="card"><div class="card-header"><span class="card-title">${t('pen_report')}</span></div>
+      <div class="card-body table-wrap">${penHtml}</div></div>
     <div class="card"><div class="card-header"><span class="card-title">${t('att_report')}</span></div>
       <div class="card-body table-wrap">${attHtml}</div></div>
     <div class="card"><div class="card-header"><span class="card-title">${t('part_report')}</span></div>
       <div class="card-body table-wrap">${partHtml}</div></div>`;
+}
+
+/* كل الجزاءات من كل الحصص، الأحدث أولاً */
+function allPenalties(){
+  const out = [];
+  DB.training.forEach(s => {
+    const pens = s.penalties || {};
+    Object.keys(pens).forEach(pid => {
+      if (!DB.players.some(p => p.id === pid)) return; // لاعبة متمسوحة
+      out.push({ playerId: pid, date: s.date || '', type: s.type || 'training', reason: pens[pid] || '' });
+    });
+  });
+  return out.sort((a,b)=>(b.date||'').localeCompare(a.date||''));
 }
 
 /* ====== EXCEL EXPORTS ====== */
@@ -2464,6 +2502,28 @@ function setupDropzones(){
     dz.addEventListener('dragleave', () => dz.classList.remove('drag'));
     dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('drag'); if (e.dataTransfer.files[0]) fn(e.dataTransfer.files[0]); });
   });
+}
+
+/* ====== EXPORT PENALTIES ====== */
+function exportPenalties(){
+  const stypeAr = { training:'تدريب', meeting:'اجتماع فني', mental:'منتال', nutrition:'نيوتريشن' };
+  const list = allPenalties();
+  const detail = list.map(x => ({
+    'اللاعبة': playerName(x.playerId),
+    'التاريخ': x.date,
+    'الحصة': stypeAr[x.type] || 'تدريب',
+    'السبب': x.reason || ''
+  }));
+  const counts = {};
+  list.forEach(x => { counts[x.playerId] = (counts[x.playerId]||0) + 1; });
+  const summary = Object.keys(counts)
+    .map(id => ({ 'اللاعبة': playerName(id), 'عدد الجزاءات': counts[id] }))
+    .sort((a,b)=>b['عدد الجزاءات']-a['عدد الجزاءات']);
+  downloadXLSX([
+    { name:'ملخص الجزاءات', rows: summary.length?summary:[{}] },
+    { name:'تفاصيل الجزاءات', rows: detail.length?detail:[{}] }
+  ], 'الجزاءات_الإدارية.xlsx');
+  toast(t('exported_ok'));
 }
 
 /* ====== EXPORT PLAYERS ====== */
