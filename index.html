@@ -245,6 +245,14 @@ button{font-family:'Cairo',sans-serif}
 .att-late input{flex:1;max-width:110px;padding:8px 10px;border:1px solid #fed7aa;border-radius:7px;
   font-family:inherit;font-size:14px;font-weight:700;text-align:center}
 .att-late .unit{font-size:12px;color:#c2410c;font-weight:700}
+/* جزاء إداري (مستقل عن الحضور) */
+.att-pen{margin-top:9px;display:flex;align-items:center;gap:8px}
+.att-pen button{flex-shrink:0;padding:8px 12px;border:1px dashed var(--border);border-radius:9px;background:var(--bg);
+  font-family:inherit;font-size:11.5px;font-weight:700;color:var(--text2);cursor:pointer;transition:.12s}
+.att-pen button:disabled{cursor:default}
+.att-pen button.on{background:#7c3aed;color:#fff;border-color:#7c3aed;border-style:solid}
+.att-pen input{flex:1;min-width:0;padding:8px 10px;border:1px solid #ddd6fe;border-radius:7px;
+  background:#f5f3ff;font-family:inherit;font-size:12.5px;font-weight:600}
 /* file filters */
 .file-filters{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:14px}
 .fchips{display:flex;flex-wrap:wrap;gap:7px;flex:1;min-width:0}
@@ -797,6 +805,7 @@ const T = {
     stype_label:'نوع الحصة', stype_training:'تدريب', stype_meeting:'اجتماع فني', stype_mental:'منتال سيشن', stype_nutrition:'نيوتريشن', att_matrix_report:'كشف الحضور التفصيلي', att_matrix_export:'⬇️ كشف الحضور التفصيلي', att_legend:'✓ حاضرة · ✗ غائبة · ع بعذر · ص مصابة · ⏱ متأخرة (بالدقايق)', th_pct2:'النسبة',
     sum_present:'حاضر', sum_absent:'غائب', sum_injured2:'مصابة', sum_excused:'بعذر', excused:'بعذر',
     late:'تأخير', sum_late:'متأخرة', late_ph:'كام دقيقة؟', min_unit:'دقيقة',
+    pen:'⚖️ جزاء إداري', pen_ph:'سبب الجزاء (اختياري)', sum_pen:'جزاءات', pen_legend:'⚖️ جزاء إداري (مالوش تأثير على النسبة)',
     import_title:'استيراد البيانات', import_sub:'Smart Merge — يضيف الجديد ويحدّث المتغيّر ولا يمسح القديم',
     up_players:'رفع اللاعبات', up_players_dz:'انقر أو اسحب ملف اللاعبات', up_players_hint:'CSV أو Excel — الاسم | رقم القميص | المركز | العمر | الهاتف',
     up_matches:'رفع جدول المباريات', up_matches_dz:'انقر أو اسحب ملف المباريات', up_matches_hint:'CSV أو Excel — التاريخ | الخصم | الملعب | الجولة',
@@ -854,6 +863,7 @@ const T = {
     stype_label:'Session type', stype_training:'Training', stype_meeting:'Technical Meeting', stype_mental:'Mental Session', stype_nutrition:'Nutrition', att_matrix_report:'Detailed Attendance Sheet', att_matrix_export:'⬇️ Detailed Attendance Sheet', att_legend:'✓ Present · ✗ Absent · E Excused · I Injured · ⏱ Late (minutes)', th_pct2:'Rate',
     sum_present:'Present', sum_absent:'Absent', sum_injured2:'Injured', sum_excused:'Excused', excused:'Excused',
     late:'Late', sum_late:'Late', late_ph:'How many min?', min_unit:'min',
+    pen:'⚖️ Penalty', pen_ph:'Reason (optional)', sum_pen:'Penalties', pen_legend:'⚖️ Admin penalty (does not affect the rate)',
     import_title:'Import Data', import_sub:'Smart Merge — adds new, updates changed, never deletes old',
     up_players:'Upload Players', up_players_dz:'Click or drag the players file', up_players_hint:'CSV or Excel — Name | Number | Position | Age | Phone',
     up_matches:'Upload Match Schedule', up_matches_dz:'Click or drag the matches file', up_matches_hint:'CSV or Excel — Date | Opponent | Venue | Round',
@@ -1625,12 +1635,14 @@ function renderSessionDetail(){
   if (!s){ el.innerHTML = `<div class="empty-sm">…</div>`; return; }
   const att = s.attendance||{};
   const lateMin = s.lateMinutes||{};
+  const pens = s.penalties||{};
   const statuses = [
     {v:'present',t:t('present')},{v:'absent',t:t('absent')},{v:'excused',t:t('excused')},
     {v:'injured',t:t('injured')},{v:'late',t:t('late')}
   ];
   const counts = {present:0,absent:0,injured:0,excused:0,late:0};
   DB.players.forEach(p => { const v=att[p.id]; if (counts[v]!==undefined) counts[v]++; });
+  const penCount = DB.players.filter(p => pens[p.id]!==undefined).length;
   const rows = !DB.players.length ? `<div class="empty-sm">${t('add_players_first')}</div>`
     : [...DB.players].sort((a,b)=>(a.number||999)-(b.number||999)).map(p => {
         const cur = att[p.id]||'';
@@ -1643,10 +1655,17 @@ function renderSessionDetail(){
                  onchange="setLateMinutes('${p.id}',this.value)" ${isAdmin?'':'disabled'}>
                <span class="unit">${t('min_unit')}</span></div>`
           : '';
+        const hasPen = pens[p.id]!==undefined;
+        const penBox = `<div class="att-pen">
+            <button class="${hasPen?'on':''}" onclick="togglePenalty('${p.id}')" ${isAdmin?'':'disabled'}>${t('pen')}</button>
+            ${hasPen?`<input type="text" value="${String(pens[p.id]||'').replace(/"/g,'&quot;')}" placeholder="${t('pen_ph')}"
+                 onchange="setPenaltyNote('${p.id}',this.value)" ${isAdmin?'':'disabled'}>`:''}
+          </div>`;
         return `<div class="att-card">
           <div class="att-name">${p.number?(`<span class="num">#${p.number}</span>`):''}${p.name}</div>
           <div class="att-btns">${btns}</div>
           ${lateBox}
+          ${penBox}
         </div>`;
       }).join('');
   el.innerHTML = `
@@ -1670,7 +1689,7 @@ function renderSessionDetail(){
     <div class="card"><div class="card-header"><span class="card-title">${t('attendance')}</span></div>
       <div class="card-body">
         <div class="att-list">${rows}</div>
-        <div class="lineup-summary">${t('sum_present')}: ${counts.present} • ${t('sum_absent')}: ${counts.absent} • ${t('sum_excused')}: ${counts.excused} • ${t('sum_injured2')}: ${counts.injured} • ${t('sum_late')}: ${counts.late}</div>
+        <div class="lineup-summary">${t('sum_present')}: ${counts.present} • ${t('sum_absent')}: ${counts.absent} • ${t('sum_excused')}: ${counts.excused} • ${t('sum_injured2')}: ${counts.injured} • ${t('sum_late')}: ${counts.late} • ${t('sum_pen')}: ${penCount}</div>
       </div></div>`;
 }
 async function setAttendance(pid, status){
@@ -1694,6 +1713,24 @@ async function setLateMinutes(pid, val){
   const n = parseInt(val);
   if (n>0) lm[pid]=n; else delete lm[pid];
   try { await db.collection('training').doc(currentSessionId).update({ lateMinutes:lm }); }
+  catch(e){ console.error(e); toast(t('save_err')); }
+}
+/* جزاء إداري — مستقل تمامًا عن الحضور ومالوش تأثير على النسبة */
+async function togglePenalty(pid){
+  if (!isAdmin) return;
+  const s = DB.training.find(x=>x.id===currentSessionId); if (!s) return;
+  const pen = Object.assign({}, s.penalties||{});
+  if (pen[pid]!==undefined) delete pen[pid]; else pen[pid]='';
+  try { await db.collection('training').doc(currentSessionId).update({ penalties:pen }); }
+  catch(e){ console.error(e); toast(t('save_err')); }
+}
+async function setPenaltyNote(pid, val){
+  if (!isAdmin) return;
+  const s = DB.training.find(x=>x.id===currentSessionId); if (!s) return;
+  const pen = Object.assign({}, s.penalties||{});
+  if (pen[pid]===undefined) return;
+  pen[pid] = (val||'').trim();
+  try { await db.collection('training').doc(currentSessionId).update({ penalties:pen }); }
   catch(e){ console.error(e); toast(t('save_err')); }
 }
 async function saveSessionMeta(){
@@ -1940,13 +1977,15 @@ function renderReports(){
       const cells = sess.map(s=>{
         const st=(s.attendance||{})[p.id]||''; const lm=(s.lateMinutes||{})[p.id];
         const sy=attSym(st,lm);
-        return `<td style="text-align:center;font-weight:800;color:${sy.c}">${sy.t}</td>`;
+        const pn=(s.penalties||{})[p.id];
+        const penMark = pn!==undefined ? `<span title="${String(pn||'').replace(/"/g,'&quot;')}" style="color:#7c3aed">⚖️</span>` : '';
+        return `<td style="text-align:center;font-weight:800;color:${sy.c}">${sy.t}${penMark}</td>`;
       }).join('');
       const pct = a.total?a.pct:0;
       const pctCol = pct>=75?'var(--green)':pct>=50?'var(--yellow)':'var(--red)';
       return `<tr><td style="position:sticky;right:0;background:var(--surface);font-weight:700">${p.number?('#'+p.number+' '):''}${p.name}</td>${cells}<td style="text-align:center"><b style="color:${pctCol}">${a.total?pct+'%':'–'}</b></td></tr>`;
     }).join('');
-    matrixHtml = `<div style="font-size:11px;color:var(--text3);margin-bottom:8px">${t('att_legend')}</div>
+    matrixHtml = `<div style="font-size:11px;color:var(--text3);margin-bottom:8px">${t('att_legend')} · ${t('pen_legend')}</div>
       <div class="table-wrap" style="overflow-x:auto"><table class="data-table nowrap-table" style="min-width:100%;white-space:nowrap">
       <thead>${head}</thead><tbody>${body}</tbody></table></div>`;
   }
@@ -2017,7 +2056,10 @@ function exportAttendanceMatrix(){
     sess.forEach(s=>{
       const d = s.date || '';
       const label = `${d} (${stypeAr[s.type]||'تدريب'})`;
-      row[label] = symTxt((s.attendance||{})[p.id]||'', (s.lateMinutes||{})[p.id]);
+      let cell = symTxt((s.attendance||{})[p.id]||'', (s.lateMinutes||{})[p.id]);
+      const pn = (s.penalties||{})[p.id];
+      if (pn !== undefined) cell = (cell ? cell + ' + ' : '') + 'جزاء' + (pn ? ' (' + pn + ')' : '');
+      row[label] = cell;
     });
     const a = playerAttendance(p.id);
     row['النسبة %'] = a.total ? a.pct : '';

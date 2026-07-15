@@ -105,6 +105,13 @@
   .late-box label{font-size:12.5px;font-weight:800;color:#c2410c;white-space:nowrap;}
   .late-box input{flex:1;max-width:120px;padding:9px 10px;border:1.5px solid #fed7aa;border-radius:8px;font-family:inherit;font-size:15px;font-weight:800;text-align:center;color:var(--black);}
   .late-box .unit{font-size:12.5px;font-weight:800;color:#c2410c;}
+  /* جزاء إداري — مستقل عن الحضور */
+  .pen-row{margin-top:9px;display:flex;align-items:center;gap:8px;}
+  .pen-btn{flex-shrink:0;border:1.5px dashed var(--line);background:#fff;border-radius:10px;padding:9px 12px;
+    font-family:inherit;font-size:12px;font-weight:700;color:var(--muted);}
+  .pen-btn.on{background:#7c3aed;border-color:#7c3aed;color:#fff;border-style:solid;}
+  .pen-row input{flex:1;min-width:0;padding:9px 10px;border:1.5px solid #ddd6fe;border-radius:8px;
+    background:#f5f3ff;font-family:inherit;font-size:12.5px;font-weight:600;color:var(--black);}
 
   /* ===== Loading / empty ===== */
   .state{text-align:center;padding:60px 20px;color:var(--muted);}
@@ -204,6 +211,7 @@ let currentSessionId = null;
 let currentDate = '';
 let attendance = {};       // local mirror {playerId: status}
 let lateMinutes = {};      // local mirror {playerId: minutes}
+let penalties = {};        // local mirror {playerId: reason} — جزاء إداري مستقل
 let sessionType = 'training';
 let creatingSession = false;
 
@@ -266,11 +274,13 @@ function syncToDate(){
     currentSessionId = found.id;
     attendance = Object.assign({}, found.attendance || {});
     lateMinutes = Object.assign({}, found.lateMinutes || {});
+    penalties = Object.assign({}, found.penalties || {});
     sessionType = found.type || 'training';
   } else {
     currentSessionId = null;
     attendance = {};
     lateMinutes = {};
+    penalties = {};
     sessionType = 'training';
   }
   renderSessRow();
@@ -327,11 +337,11 @@ async function addSession(type){
   if (!db) return;
   try {
     const ref = await db.collection('training').add({
-      date: currentDate, note:'', type, attendance:{}, lateMinutes:{}, createdAt: Date.now()
+      date: currentDate, note:'', type, attendance:{}, lateMinutes:{}, penalties:{}, createdAt: Date.now()
     });
     currentSessionId = ref.id;
     sessionType = type;
-    attendance = {}; lateMinutes = {};
+    attendance = {}; lateMinutes = {}; penalties = {};
     renderSessRow(); render();
     toast('تم إضافة ' + stypeMeta(type).t + ' ✓');
   } catch(e){ console.error(e); toast('خطأ في إضافة الحصة'); }
@@ -383,6 +393,13 @@ function render(){
           onchange="setLate('${p.id}', this.value)">
         <span class="unit">دقيقة</span>
       </div>` : '';
+    const hasPen = penalties[p.id] !== undefined;
+    const penBox = `
+      <div class="pen-row">
+        <button class="pen-btn ${hasPen?'on':''}" onclick="togglePen('${p.id}')">⚖️ جزاء إداري</button>
+        ${hasPen?`<input type="text" value="${esc(penalties[p.id]||'')}" placeholder="سبب الجزاء (اختياري)"
+          onchange="setPenNote('${p.id}', this.value)">`:''}
+      </div>`;
     return `
       <div class="pcard">
         <div class="pcard-top">
@@ -395,6 +412,7 @@ function render(){
         </div>
         <div class="status-grid">${btns}</div>
         ${lateBox}
+        ${penBox}
       </div>`;
   }).join('');
 }
@@ -415,6 +433,18 @@ async function setStatus(pid, status){
 async function setLate(pid, val){
   const n = parseInt(val);
   if (n > 0) lateMinutes[pid] = n; else delete lateMinutes[pid];
+  await persist();
+}
+
+/* جزاء إداري — مستقل تمامًا عن الحضور ومالوش تأثير على النسبة */
+async function togglePen(pid){
+  if (penalties[pid] !== undefined) delete penalties[pid]; else penalties[pid] = '';
+  render();
+  await persist();
+}
+async function setPenNote(pid, val){
+  if (penalties[pid] === undefined) return;
+  penalties[pid] = (val || '').trim();
   await persist();
 }
 
@@ -439,13 +469,13 @@ async function persist(){
   if (!db) return;
   try {
     if (currentSessionId){
-      await db.collection('training').doc(currentSessionId).update({ attendance, lateMinutes, type: sessionType });
+      await db.collection('training').doc(currentSessionId).update({ attendance, lateMinutes, penalties, type: sessionType });
     } else {
       // create the session for this date once
       if (creatingSession) return;
       creatingSession = true;
       const ref = await db.collection('training').add({
-        date: currentDate, note:'', type: sessionType, attendance, lateMinutes, createdAt: Date.now()
+        date: currentDate, note:'', type: sessionType, attendance, lateMinutes, penalties, createdAt: Date.now()
       });
       currentSessionId = ref.id;
       creatingSession = false;
