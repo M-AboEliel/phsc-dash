@@ -42,6 +42,29 @@
   .date-row input{flex:1;border:none;background:#fff;color:var(--black);border-radius:7px;padding:8px;font-size:14px;font-weight:600;font-family:inherit;}
   .date-row select{flex:1;border:none;background:#fff;color:var(--black);border-radius:7px;padding:8px;font-size:14px;font-weight:700;font-family:inherit;}
 
+  /* ===== حصص اليوم ===== */
+  .sess-row{display:flex;gap:6px;align-items:center;margin-top:8px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:2px;}
+  .sess-chip{flex-shrink:0;border:1.5px solid rgba(255,255,255,.35);background:rgba(255,255,255,.12);color:#fff;
+    border-radius:20px;padding:7px 12px;font-family:inherit;font-size:12px;font-weight:700;white-space:nowrap;}
+  .sess-chip.on{background:#fff;color:var(--red);border-color:#fff;}
+  .add-sess{flex-shrink:0;border:1.5px dashed rgba(255,255,255,.6);background:transparent;color:#fff;
+    border-radius:20px;padding:7px 12px;font-family:inherit;font-size:12px;font-weight:800;white-space:nowrap;}
+  .del-sess{flex-shrink:0;border:none;background:rgba(0,0,0,.18);color:#fff;border-radius:20px;
+    padding:7px 10px;font-family:inherit;font-size:12px;font-weight:700;}
+  .no-sess{font-size:12px;color:rgba(255,255,255,.85);font-weight:600;}
+
+  /* ===== اختيار نوع الحصة ===== */
+  .sheet{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:200;display:none;align-items:flex-end;}
+  .sheet.show{display:flex;}
+  .sheet-box{background:var(--card);width:100%;border-radius:18px 18px 0 0;padding:18px 16px calc(18px + env(safe-area-inset-bottom));}
+  .sheet-box h3{font-size:15px;font-weight:800;margin-bottom:12px;text-align:center;color:var(--black);}
+  .sheet-opts{display:grid;grid-template-columns:1fr 1fr;gap:9px;}
+  .sheet-opts button{border:1.5px solid var(--line);background:#fff;border-radius:12px;padding:14px 6px;
+    font-family:inherit;font-size:13px;font-weight:700;color:var(--black);display:flex;flex-direction:column;align-items:center;gap:5px;}
+  .sheet-opts button .ico{font-size:22px;}
+  .sheet-cancel{width:100%;margin-top:10px;border:none;background:var(--line);color:var(--muted);
+    border-radius:12px;padding:12px;font-family:inherit;font-size:13px;font-weight:800;}
+
   /* ===== Summary bar ===== */
   .summary{display:grid;grid-template-columns:repeat(5,1fr);gap:5px;padding:12px 12px 4px;}
   .sum-pill{background:var(--card);border-radius:12px;padding:8px 3px;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,.06);}
@@ -115,16 +138,17 @@
     <label>📅 التاريخ</label>
     <input type="date" id="sessDate">
   </div>
-  <div class="date-row" style="margin-top:8px">
-    <label>📋 نوع الحصة</label>
-    <select id="sessType">
-      <option value="training">🏃 تدريب</option>
-      <option value="meeting">🗣️ اجتماع فني</option>
-      <option value="mental">🧠 منتال سيشن</option>
-      <option value="nutrition">🍎 نيوتريشن</option>
-    </select>
-  </div>
+  <div class="sess-row" id="sessRow"></div>
 </header>
+
+<!-- اختيار نوع الحصة -->
+<div class="sheet" id="typeSheet" onclick="if(event.target===this)closeTypeSheet()">
+  <div class="sheet-box">
+    <h3 id="sheetTitle">اختار نوع الحصة</h3>
+    <div class="sheet-opts" id="sheetOpts"></div>
+    <button class="sheet-cancel" onclick="closeTypeSheet()">إلغاء</button>
+  </div>
+</div>
 
 <div class="summary">
   <div class="sum-pill present"><div class="n" id="cPresent">0</div><div class="l">حاضرة</div></div>
@@ -166,6 +190,14 @@ const STATUSES = [
   {v:'injured', t:'مصابة', ico:'➕'},
   {v:'late',    t:'تأخير', ico:'⏱'}
 ];
+
+const SESSION_TYPES = [
+  {v:'training',  t:'تدريب',       ico:'🏃'},
+  {v:'meeting',   t:'اجتماع فني',  ico:'🗣️'},
+  {v:'mental',    t:'منتال سيشن',  ico:'🧠'},
+  {v:'nutrition', t:'نيوتريشن',    ico:'🍎'}
+];
+const stypeMeta = v => SESSION_TYPES.find(x=>x.v===v) || SESSION_TYPES[0];
 
 let db, players = [], sessions = [];
 let currentSessionId = null;
@@ -214,23 +246,22 @@ currentDate = todayStr;
 dateInput.value = todayStr;
 dateInput.addEventListener('change', () => {
   currentDate = dateInput.value;
+  currentSessionId = null;   // نبدأ من أول حصة في اليوم الجديد
   syncToDate();
   render();
 });
 
-const typeInput = document.getElementById('sessType');
-typeInput.addEventListener('change', async () => {
-  sessionType = typeInput.value || 'training';
-  // لو الحصة موجودة، حدّث نوعها فورًا (لو لسه ما اتعملتش، هيتحفظ مع أول تسجيل)
-  if (currentSessionId){
-    try { await db.collection('training').doc(currentSessionId).update({ type: sessionType }); }
-    catch(e){ console.error(e); }
-  }
-});
+/* كل حصص اليوم الحالي (ممكن أكتر من واحدة) */
+function sessionsOfDay(){
+  return sessions.filter(s => s.date === currentDate)
+                 .sort((a,b)=>(a.createdAt||0)-(b.createdAt||0));
+}
 
-// Find existing session for currentDate, or reset to fresh (created on first tap)
+// نحمّل الحصة المختارة — ولو مفيش، نفضل على أول حصة في اليوم
 function syncToDate(){
-  const found = sessions.find(s => s.date === currentDate);
+  const day = sessionsOfDay();
+  let found = currentSessionId ? day.find(s => s.id === currentSessionId) : null;
+  if (!found) found = day[0] || null;
   if (found){
     currentSessionId = found.id;
     attendance = Object.assign({}, found.attendance || {});
@@ -242,7 +273,80 @@ function syncToDate(){
     lateMinutes = {};
     sessionType = 'training';
   }
-  const ti = document.getElementById('sessType'); if (ti) ti.value = sessionType;
+  renderSessRow();
+}
+
+/* شرائح حصص اليوم + زر إضافة حصة */
+function renderSessRow(){
+  const row = document.getElementById('sessRow'); if (!row) return;
+  const day = sessionsOfDay();
+  const chips = day.map(s => {
+    const m = stypeMeta(s.type);
+    return `<button class="sess-chip ${s.id===currentSessionId?'on':''}" onclick="selectSession('${s.id}')">${m.ico} ${m.t}</button>`;
+  }).join('');
+  const empty = day.length ? '' : '<span class="no-sess">مفيش حصص لليوم ده</span>';
+  const del = (day.length > 1 && currentSessionId) ? `<button class="del-sess" onclick="deleteSession()">🗑️</button>` : '';
+  row.innerHTML = empty + chips + `<button class="add-sess" onclick="openTypeSheet()">➕ إضافة حصة</button>` + del;
+}
+
+function selectSession(id){
+  // دوسة تانية على نفس الحصة = تغيير نوعها
+  if (id === currentSessionId){ openTypeSheet('change'); return; }
+  currentSessionId = id;
+  syncToDate();
+  render();
+}
+
+/* ===== شاشة اختيار النوع (إضافة / تغيير) ===== */
+let sheetMode = 'add';
+function openTypeSheet(m){
+  sheetMode = (m === 'change') ? 'change' : 'add';
+  document.getElementById('sheetTitle').textContent =
+    sheetMode === 'change' ? 'غيّر نوع الحصة' : 'اختار نوع الحصة الجديدة';
+  const opts = document.getElementById('sheetOpts');
+  opts.innerHTML = SESSION_TYPES.map(s =>
+    `<button onclick="pickType('${s.v}')"><span class="ico">${s.ico}</span>${s.t}</button>`).join('');
+  document.getElementById('typeSheet').classList.add('show');
+}
+function closeTypeSheet(){ document.getElementById('typeSheet').classList.remove('show'); }
+function pickType(v){ if (sheetMode === 'change') changeType(v); else addSession(v); }
+
+async function changeType(type){
+  closeTypeSheet();
+  if (!currentSessionId) return;
+  try {
+    await db.collection('training').doc(currentSessionId).update({ type });
+    sessionType = type;
+    renderSessRow();
+    toast('اتغيّر لـ ' + stypeMeta(type).t + ' ✓');
+  } catch(e){ console.error(e); toast('خطأ في التغيير'); }
+}
+
+async function addSession(type){
+  closeTypeSheet();
+  if (!db) return;
+  try {
+    const ref = await db.collection('training').add({
+      date: currentDate, note:'', type, attendance:{}, lateMinutes:{}, createdAt: Date.now()
+    });
+    currentSessionId = ref.id;
+    sessionType = type;
+    attendance = {}; lateMinutes = {};
+    renderSessRow(); render();
+    toast('تم إضافة ' + stypeMeta(type).t + ' ✓');
+  } catch(e){ console.error(e); toast('خطأ في إضافة الحصة'); }
+}
+
+async function deleteSession(){
+  if (!currentSessionId) return;
+  const m = stypeMeta(sessionType);
+  if (!confirm('تمسح حصة «' + m.t + '» بتاريخ ' + currentDate + ' بكل حضورها؟')) return;
+  try {
+    await db.collection('training').doc(currentSessionId).delete();
+    currentSessionId = null;
+    syncToDate(); render();
+    toast('تم مسح الحصة');
+  } catch(e){ console.error(e); toast('خطأ في المسح'); }
 }
 
 /* ===== Render ===== */
